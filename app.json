@@ -6,10 +6,10 @@
   "keywords": ["node", "express", "youtube", "mp3", "downloader"],
   "buildpacks": [
     {
-      "url": "heroku/python"
+      "url": "heroku/nodejs"
     },
     {
-      "url": "heroku/nodejs"
+      "url": "heroku/python"
     }
   ],
   "env": {
