@@ -82,6 +82,13 @@ class YouTubeDownloader {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                
+                // Alternatif linkler varsa göster
+                if (errorData.alternatives) {
+                    this.showAlternatives(errorData);
+                    return;
+                }
+                
                 throw new Error(errorData.error || 'İndirme başarısız');
             }
 
@@ -106,35 +113,47 @@ class YouTubeDownloader {
         }
     }
 
-    showAlternativeDownload(data) {
+    showAlternatives(data) {
         const alternativeDiv = document.createElement('div');
         alternativeDiv.className = 'alternative-download';
         alternativeDiv.style.cssText = `
             background: #fff3cd;
             color: #856404;
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
             border: 1px solid #ffeaa7;
             margin: 20px 0;
             text-align: center;
         `;
         
+        let alternativeLinks = '';
+        data.alternatives.forEach((link, index) => {
+            alternativeLinks += `
+                <a href="${link}" target="_blank" 
+                   style="display: inline-block; margin: 5px 10px; padding: 10px 15px; 
+                          background: #007bff; color: white; text-decoration: none; 
+                          border-radius: 5px; font-size: 14px;">
+                    Alternatif ${index + 1}
+                </a>
+            `;
+        });
+        
         alternativeDiv.innerHTML = `
-            <h4>Otomatik İndirme Kullanılamıyor</h4>
+            <h4>🤖 YouTube Bot Koruması Aktif</h4>
             <p>${data.message}</p>
-            <a href="${data.alternativeUrl}" target="_blank" 
-               style="display: inline-block; margin-top: 10px; padding: 10px 20px; 
-                      background: #007bff; color: white; text-decoration: none; 
-                      border-radius: 5px;">
-                Manuel İndirme Sayfasını Aç
-            </a>
+            <div style="margin-top: 15px;">
+                ${alternativeLinks}
+            </div>
+            <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;">
+                Bu siteler üzerinden manuel olarak indirebilirsiniz
+            </p>
         `;
         
         this.videoInfo.insertBefore(alternativeDiv, this.videoInfo.firstChild);
         
         setTimeout(() => {
             alternativeDiv.remove();
-        }, 10000);
+        }, 15000);
     }
 
     displayVideoInfo(data) {

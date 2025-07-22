@@ -106,7 +106,7 @@ app.post('/api/download', async (req, res) => {
             exec(pythonCommand, { timeout: 180000 }, (error, stdout, stderr) => {
                 console.log('Python stdout:', stdout);
                 console.log('Python stderr:', stderr);
-                
+
                 if (error) {
                     console.error('Python execution error:', error);
                     reject(error);
@@ -118,7 +118,7 @@ app.post('/api/download', async (req, res) => {
                     const lines = stdout.trim().split('\n');
                     const jsonLine = lines[lines.length - 1]; // Son satır JSON olmalı
                     console.log('JSON line:', jsonLine);
-                    
+
                     const result = JSON.parse(jsonLine);
                     resolve(result);
                 } catch (parseError) {
@@ -130,6 +130,20 @@ app.post('/api/download', async (req, res) => {
         });
 
         if (!result.success) {
+            // Bot koruması durumunda alternatif öner
+            if (result.error && result.error.includes('bot')) {
+                const videoId = extractVideoId(url);
+                return res.json({
+                    error: 'YouTube bot koruması aktif',
+                    message: 'Otomatik indirme şu anda mümkün değil. Alternatif siteler:',
+                    alternatives: [
+                        `https://y2mate.com/youtube/${videoId}`,
+                        `https://ytmp3.cc/youtube-to-mp3/`,
+                        `https://mp3download.to/`
+                    ],
+                    videoId: videoId
+                });
+            }
             throw new Error(result.error || 'İndirme başarısız');
         }
 
