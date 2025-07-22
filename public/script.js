@@ -80,35 +80,25 @@ class YouTubeDownloader {
                 body: JSON.stringify({ url })
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                // Eğer alternatif URL varsa göster
-                if (data.alternativeUrl) {
-                    this.downloadProgress.classList.add('hidden');
-                    this.videoInfo.classList.remove('hidden');
-                    this.showAlternativeDownload(data);
-                    return;
-                }
-                throw new Error(data.error || 'İndirme başarısız');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'İndirme başarısız');
             }
 
-            // Normal dosya indirme
-            if (response.headers.get('content-type') === 'audio/mpeg') {
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = `${this.videoTitle.textContent}.mp3`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(downloadUrl);
+            // Dosyayı indir
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `${this.videoTitle.textContent}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
 
-                this.downloadProgress.classList.add('hidden');
-                this.videoInfo.classList.remove('hidden');
-                this.showSuccess('İndirme tamamlandı!');
-            }
+            this.downloadProgress.classList.add('hidden');
+            this.videoInfo.classList.remove('hidden');
+            this.showSuccess('İndirme tamamlandı!');
 
         } catch (error) {
             this.downloadProgress.classList.add('hidden');
