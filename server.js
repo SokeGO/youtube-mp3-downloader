@@ -1,5 +1,5 @@
 const express = require('express');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -26,18 +26,25 @@ app.post('/api/video-info', async (req, res) => {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
 
-        const info = await ytdl.getInfo(url);
+        // Daha güvenilir agent kullan
+        const agent = ytdl.createAgent([
+            {
+                "name": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        ]);
+
+        const info = await ytdl.getInfo(url, { agent });
         const videoDetails = {
             title: info.videoDetails.title,
             author: info.videoDetails.author.name,
             lengthSeconds: info.videoDetails.lengthSeconds,
-            thumbnail: info.videoDetails.thumbnails[0]?.url
+            thumbnail: info.videoDetails.thumbnails[0]?.url || info.videoDetails.thumbnail?.thumbnails?.[0]?.url
         };
 
         res.json(videoDetails);
     } catch (error) {
         console.error('Video bilgisi alınamadı:', error);
-        res.status(500).json({ error: 'Video bilgisi alınamadı' });
+        res.status(500).json({ error: 'Video bilgisi alınamadı: ' + error.message });
     }
 });
 
@@ -50,20 +57,38 @@ app.post('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
 
-        const info = await ytdl.getInfo(url);
-        const title = info.videoDetails.title.replace(/[^\w\s]/gi, '');
+        const agent = ytdl.createAgent([
+            {
+                "name": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        ]);
+
+        const info = await ytdl.getInfo(url, { agent });
+        const title = info.videoDetails.title.replace(/[^\w\s-]/gi, '').substring(0, 50);
         
         res.header('Content-Disposition', `attachment; filename="${title}.mp3"`);
         res.header('Content-Type', 'audio/mpeg');
 
-        ytdl(url, {
+        const audioStream = ytdl(url, {
             filter: 'audioonly',
             quality: 'highestaudio',
-        }).pipe(res);
+            agent: agent
+        });
+
+        audioStream.pipe(res);
+
+        audioStream.on('error', (error) => {
+            console.error('Stream hatası:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'İndirme başarısız' });
+            }
+        });
 
     } catch (error) {
         console.error('İndirme hatası:', error);
-        res.status(500).json({ error: 'İndirme başarısız' });
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'İndirme başarısız: ' + error.message });
+        }
     }
 });
 
