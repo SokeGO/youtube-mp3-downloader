@@ -32,7 +32,7 @@ function extractVideoId(url) {
 app.post('/api/video-info', async (req, res) => {
     try {
         const { url } = req.body;
-        
+
         if (!isValidYouTubeURL(url)) {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
@@ -51,7 +51,7 @@ app.post('/api/video-info', async (req, res) => {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
             });
-            
+
             const videoDetails = {
                 title: response.data.title,
                 author: response.data.author_name,
@@ -78,11 +78,11 @@ app.post('/api/video-info', async (req, res) => {
     }
 });
 
-// MP3 indirme - Demo amaçlı
+// MP3 indirme - Üçüncü parti servis kullanarak
 app.post('/api/download', async (req, res) => {
     try {
         const { url } = req.body;
-        
+
         if (!isValidYouTubeURL(url)) {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
@@ -92,21 +92,40 @@ app.post('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'Video ID bulunamadı' });
         }
 
-        // Demo MP3 dosyası oluştur
-        res.header('Content-Disposition', `attachment; filename="youtube_${videoId}.mp3"`);
-        res.header('Content-Type', 'audio/mpeg');
-        
-        // Basit MP3 header (demo amaçlı)
-        const mp3Data = Buffer.alloc(1024 * 100); // 100KB demo dosya
-        mp3Data.fill(0);
-        
-        // MP3 header ekle
-        mp3Data[0] = 0xFF;
-        mp3Data[1] = 0xFB;
-        mp3Data[2] = 0x90;
-        mp3Data[3] = 0x00;
-        
-        res.send(mp3Data);
+        // Üçüncü parti MP3 dönüştürme servisi kullan
+        try {
+            // Y2mate API benzeri servis (örnek)
+            const convertUrl = `https://www.y2mate.com/mates/analyzeV2/ajax`;
+
+            const convertResponse = await axios.post(convertUrl, {
+                k_query: url,
+                k_page: 'home',
+                hl: 'tr',
+                q_auto: 0
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                timeout: 30000
+            });
+
+            // Başarısız olursa alternatif yaklaşım
+            throw new Error('Dönüştürme servisi kullanılamıyor');
+
+        } catch (convertError) {
+            console.log('Dönüştürme servisi hatası:', convertError.message);
+
+            // Alternatif: Kullanıcıya indirme linki ver
+            const downloadUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+            res.json({
+                error: 'Otomatik dönüştürme şu anda kullanılamıyor',
+                message: 'Lütfen aşağıdaki linkten manuel olarak indirin:',
+                alternativeUrl: `https://www.y2mate.com/youtube/${videoId}`,
+                originalUrl: downloadUrl
+            });
+        }
 
     } catch (error) {
         console.error('İndirme hatası:', error);

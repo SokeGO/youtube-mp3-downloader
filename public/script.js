@@ -80,30 +80,71 @@ class YouTubeDownloader {
                 body: JSON.stringify({ url })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'İndirme başarısız');
+                // Eğer alternatif URL varsa göster
+                if (data.alternativeUrl) {
+                    this.downloadProgress.classList.add('hidden');
+                    this.videoInfo.classList.remove('hidden');
+                    this.showAlternativeDownload(data);
+                    return;
+                }
+                throw new Error(data.error || 'İndirme başarısız');
             }
 
-            // Dosyayı indir
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `${this.videoTitle.textContent}.mp3`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(downloadUrl);
+            // Normal dosya indirme
+            if (response.headers.get('content-type') === 'audio/mpeg') {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `${this.videoTitle.textContent}.mp3`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
 
-            this.downloadProgress.classList.add('hidden');
-            this.videoInfo.classList.remove('hidden');
-            this.showSuccess('İndirme tamamlandı!');
+                this.downloadProgress.classList.add('hidden');
+                this.videoInfo.classList.remove('hidden');
+                this.showSuccess('İndirme tamamlandı!');
+            }
 
         } catch (error) {
             this.downloadProgress.classList.add('hidden');
             this.showError(error.message);
         }
+    }
+
+    showAlternativeDownload(data) {
+        const alternativeDiv = document.createElement('div');
+        alternativeDiv.className = 'alternative-download';
+        alternativeDiv.style.cssText = `
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ffeaa7;
+            margin: 20px 0;
+            text-align: center;
+        `;
+        
+        alternativeDiv.innerHTML = `
+            <h4>Otomatik İndirme Kullanılamıyor</h4>
+            <p>${data.message}</p>
+            <a href="${data.alternativeUrl}" target="_blank" 
+               style="display: inline-block; margin-top: 10px; padding: 10px 20px; 
+                      background: #007bff; color: white; text-decoration: none; 
+                      border-radius: 5px;">
+                Manuel İndirme Sayfasını Aç
+            </a>
+        `;
+        
+        this.videoInfo.insertBefore(alternativeDiv, this.videoInfo.firstChild);
+        
+        setTimeout(() => {
+            alternativeDiv.remove();
+        }, 10000);
     }
 
     displayVideoInfo(data) {
