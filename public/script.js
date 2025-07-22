@@ -147,6 +147,12 @@ class YouTubeDownloader {
     }
 
     formatDuration(seconds) {
+        if (typeof seconds === 'string') {
+            return seconds; // "Bilinmiyor" gibi string değerler için
+        }
+        if (!seconds || seconds === 0) {
+            return 'Bilinmiyor';
+        }
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;

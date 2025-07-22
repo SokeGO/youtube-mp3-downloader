@@ -57,7 +57,7 @@ app.post('/api/video-info', async (req, res) => {
             const videoDetails = {
                 title: response.data.title,
                 author: response.data.author_name,
-                lengthSeconds: 180, // oEmbed'de süre yok
+                lengthSeconds: 'Bilinmiyor', // oEmbed'de süre yok
                 thumbnail: response.data.thumbnail_url
             };
 
@@ -68,7 +68,7 @@ app.post('/api/video-info', async (req, res) => {
             const videoDetails = {
                 title: `YouTube Video ${videoId}`,
                 author: 'YouTube Kullanıcısı',
-                lengthSeconds: 180,
+                lengthSeconds: 'Bilinmiyor',
                 thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
             };
 
@@ -103,20 +103,27 @@ app.post('/api/download', async (req, res) => {
         console.log('Python komutu çalıştırılıyor:', pythonCommand);
 
         const result = await new Promise((resolve, reject) => {
-            exec(pythonCommand, { timeout: 120000 }, (error, stdout, stderr) => {
+            exec(pythonCommand, { timeout: 180000 }, (error, stdout, stderr) => {
+                console.log('Python stdout:', stdout);
+                console.log('Python stderr:', stderr);
+                
                 if (error) {
-                    console.error('Python hatası:', error);
-                    console.error('stderr:', stderr);
+                    console.error('Python execution error:', error);
                     reject(error);
                     return;
                 }
 
                 try {
-                    const result = JSON.parse(stdout.trim());
+                    // stdout'dan JSON kısmını ayıkla
+                    const lines = stdout.trim().split('\n');
+                    const jsonLine = lines[lines.length - 1]; // Son satır JSON olmalı
+                    console.log('JSON line:', jsonLine);
+                    
+                    const result = JSON.parse(jsonLine);
                     resolve(result);
                 } catch (parseError) {
                     console.error('JSON parse hatası:', parseError);
-                    console.error('stdout:', stdout);
+                    console.error('Full stdout:', stdout);
                     reject(parseError);
                 }
             });
