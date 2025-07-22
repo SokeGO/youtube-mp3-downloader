@@ -202,6 +202,15 @@ footer {
     margin-top: 40px;
 }
 
+.audio-player audio {
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.audio-player audio::-webkit-media-controls-panel {
+    background-color: #f8f9fa;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 10px;
@@ -219,5 +228,13 @@ footer {
     
     .input-group {
         flex-direction: column;
+    }
+    
+    .audio-player {
+        padding: 20px !important;
+    }
+    
+    .audio-player audio {
+        width: 100% !important;
     }
 }

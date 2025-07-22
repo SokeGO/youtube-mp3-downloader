@@ -162,32 +162,42 @@ app.post('/api/download', async (req, res) => {
             throw new Error(`Dosya çok küçük (${fileStats.size} bytes). İndirme başarısız.`);
         }
 
-        // Dosyayı kullanıcıya gönder
-        const filename = result.title.replace(/[^\w\s-]/gi, '').substring(0, 50) + '.mp3';
-
-        res.header('Content-Disposition', `attachment; filename="${filename}"`);
-        res.header('Content-Type', 'audio/mpeg');
-        res.header('Content-Length', fileStats.size);
-
-        const fileStream = fs.createReadStream(tempFile);
-        fileStream.pipe(res);
-
-        // Stream bittiğinde dosyayı sil
-        fileStream.on('end', () => {
-            setTimeout(() => {
-                if (tempFile && fs.existsSync(tempFile)) {
-                    fs.unlinkSync(tempFile);
-                    console.log('Temp dosya silindi:', tempFile);
-                }
-            }, 1000);
+        // Dosyayı streaming için hazırla
+        const filename = result.title.replace(/[^\w\s-]/gi, '').substring(0, 50);
+        const audioId = Date.now().toString(); // Unique ID
+        
+        // Dosyayı public klasörüne taşı (geçici olarak)
+        const publicAudioPath = path.join(__dirname, 'public', 'audio', `${audioId}.mp3`);
+        const audioDir = path.join(__dirname, 'public', 'audio');
+        
+        if (!fs.existsSync(audioDir)) {
+            fs.mkdirSync(audioDir, { recursive: true });
+        }
+        
+        fs.copyFileSync(tempFile, publicAudioPath);
+        
+        // Streaming bilgilerini döndür
+        res.json({
+            success: true,
+            title: result.title,
+            duration: result.duration,
+            audioUrl: `/audio/${audioId}.mp3`,
+            audioId: audioId,
+            size: fileStats.size
         });
 
-        fileStream.on('error', (error) => {
-            console.error('Stream hatası:', error);
-            if (tempFile && fs.existsSync(tempFile)) {
-                fs.unlinkSync(tempFile);
+        // Orijinal temp dosyayı sil
+        if (fs.existsSync(tempFile)) {
+            fs.unlinkSync(tempFile);
+        }
+
+        // 10 dakika sonra public dosyayı da sil
+        setTimeout(() => {
+            if (fs.existsSync(publicAudioPath)) {
+                fs.unlinkSync(publicAudioPath);
+                console.log('Public audio dosyası silindi:', publicAudioPath);
             }
-        });
+        }, 10 * 60 * 1000); // 10 dakika
 
     } catch (error) {
         console.error('İndirme hatası:', error);

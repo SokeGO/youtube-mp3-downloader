@@ -80,37 +80,72 @@ class YouTubeDownloader {
                 body: JSON.stringify({ url })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                
                 // Alternatif linkler varsa göster
-                if (errorData.alternatives) {
-                    this.showAlternatives(errorData);
+                if (data.alternatives) {
+                    this.showAlternatives(data);
                     return;
                 }
                 
-                throw new Error(errorData.error || 'İndirme başarısız');
+                throw new Error(data.error || 'İşlem başarısız');
             }
 
-            // Dosyayı indir
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `${this.videoTitle.textContent}.mp3`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(downloadUrl);
-
-            this.downloadProgress.classList.add('hidden');
-            this.videoInfo.classList.remove('hidden');
-            this.showSuccess('İndirme tamamlandı!');
+            // Streaming player'ı göster
+            this.showAudioPlayer(data);
 
         } catch (error) {
             this.downloadProgress.classList.add('hidden');
             this.showError(error.message);
         }
+    }
+
+    showAudioPlayer(data) {
+        this.downloadProgress.classList.add('hidden');
+        
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'audio-player';
+        playerDiv.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin: 20px 0;
+            text-align: center;
+        `;
+        
+        playerDiv.innerHTML = `
+            <h3 style="margin-bottom: 20px; color: #333;">${data.title}</h3>
+            <audio controls style="width: 100%; max-width: 500px; margin: 20px 0;">
+                <source src="${data.audioUrl}" type="audio/mpeg">
+                Tarayıcınız ses dosyasını desteklemiyor.
+            </audio>
+            <div style="margin-top: 20px;">
+                <p style="color: #666; font-size: 14px;">
+                    Dosya Boyutu: ${(data.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                <a href="${data.audioUrl}" download="${data.title}.mp3" 
+                   style="display: inline-block; margin-top: 10px; padding: 10px 20px; 
+                          background: #28a745; color: white; text-decoration: none; 
+                          border-radius: 5px;">
+                    💾 İndir
+                </a>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                    ⏰ Bu dosya 10 dakika sonra silinecek
+                </p>
+            </div>
+        `;
+        
+        // Mevcut player'ları temizle
+        const existingPlayers = document.querySelectorAll('.audio-player');
+        existingPlayers.forEach(player => player.remove());
+        
+        // Yeni player'ı ekle
+        this.videoInfo.appendChild(playerDiv);
+        this.videoInfo.classList.remove('hidden');
+        
+        this.showSuccess('🎵 Ses dosyası hazır! Dinleyebilir veya indirebilirsiniz.');
     }
 
     showAlternatives(data) {
