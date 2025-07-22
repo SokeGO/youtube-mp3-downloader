@@ -79,11 +79,8 @@ app.post('/api/video-info', async (req, res) => {
     }
 });
 
-// Ses dosyası streaming
+// Ana indirme endpoint'i - Alternatif siteler öner
 app.post('/api/download', async (req, res) => {
-    const tempDir = path.join(__dirname, 'temp');
-    const audioDir = path.join(__dirname, 'public', 'audio');
-
     try {
         const { url } = req.body;
 
@@ -91,102 +88,37 @@ app.post('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
 
-        // Klasörleri oluştur
-        if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
-        }
-        if (!fs.existsSync(audioDir)) {
-            fs.mkdirSync(audioDir, { recursive: true });
-        }
-
-        // Python ile indir
-        const pythonCommand = `python3 download.py "${url}" "${tempDir}"`;
-        console.log('Python komutu:', pythonCommand);
-
-        const result = await new Promise((resolve, reject) => {
-            exec(pythonCommand, { timeout: 180000 }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Python hatası:', error);
-                    reject(error);
-                    return;
+        const videoId = extractVideoId(url);
+        
+        // Direkt alternatif siteler öner
+        res.json({
+            error: 'YouTube MP3 dönüştürme servisi şu anda kullanılamıyor',
+            message: 'Aşağıdaki alternatif sitelerden birini kullanabilirsiniz:',
+            alternatives: [
+                {
+                    name: 'Y2mate',
+                    url: `https://www.y2mate.com/youtube/${videoId}`,
+                    description: 'Popüler YouTube MP3 dönüştürücü'
+                },
+                {
+                    name: 'YTMP3',
+                    url: 'https://ytmp3.cc/youtube-to-mp3/',
+                    description: 'Hızlı ve basit MP3 dönüştürücü'
+                },
+                {
+                    name: 'MP3Download',
+                    url: 'https://mp3download.to/',
+                    description: 'Ücretsiz YouTube MP3 indirici'
+                },
+                {
+                    name: 'Loader.to',
+                    url: 'https://loader.to/tr/youtube-mp3-downloader/',
+                    description: 'Türkçe YouTube MP3 dönüştürücü'
                 }
-
-                try {
-                    const lines = stdout.trim().split('\n');
-                    const jsonLine = lines[lines.length - 1];
-                    const result = JSON.parse(jsonLine);
-                    resolve(result);
-                } catch (parseError) {
-                    console.error('JSON parse hatası:', parseError);
-                    reject(parseError);
-                }
-            });
+            ],
+            videoId: videoId,
+            originalUrl: url
         });
-
-        if (!result.success) {
-            console.log('Python başarısız, demo dosya oluşturuluyor...');
-            
-            // Demo ses dosyası oluştur (test için)
-            const audioId = Date.now().toString();
-            const demoAudioPath = path.join(audioDir, `${audioId}.mp3`);
-            
-            // Basit MP3 header oluştur (demo)
-            const mp3Header = Buffer.from([
-                0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ]);
-            
-            // 1MB demo dosya oluştur
-            const demoData = Buffer.alloc(1024 * 1024);
-            demoData.fill(0);
-            mp3Header.copy(demoData, 0);
-            
-            fs.writeFileSync(demoAudioPath, demoData);
-            
-            console.log('Demo dosya oluşturuldu:', demoAudioPath);
-            
-            return res.json({
-                success: true,
-                title: 'Demo Audio (YouTube erişimi başarısız)',
-                duration: 60,
-                audioUrl: `/audio/${audioId}.mp3`,
-                size: demoData.length,
-                demo: true
-            });
-        }
-
-        const tempFile = result.path;
-        if (!fs.existsSync(tempFile)) {
-            throw new Error('Dosya bulunamadı');
-        }
-
-        // Dosyayı public/audio klasörüne kopyala
-        const audioId = Date.now().toString();
-        const publicAudioPath = path.join(audioDir, `${audioId}.mp3`);
-        
-        fs.copyFileSync(tempFile, publicAudioPath);
-        
-        // Temp dosyayı sil
-        fs.unlinkSync(tempFile);
-
-        // Response gönder
-        console.log('Başarılı result:', result);
-        const responseData = {
-            success: true,
-            title: result.title || 'YouTube Audio',
-            duration: result.duration || 0,
-            audioUrl: `/audio/${audioId}.mp3`,
-            size: result.size || 0
-        };
-        console.log('Response gönderiliyor:', responseData);
-        res.json(responseData);
-
-        // 10 dakika sonra public dosyayı sil
-        setTimeout(() => {
-            if (fs.existsSync(publicAudioPath)) {
-                fs.unlinkSync(publicAudioPath);
-            }
-        }, 10 * 60 * 1000);
 
     } catch (error) {
         console.error('Hata:', error);

@@ -153,6 +153,74 @@ class YouTubeDownloader {
     }
 
     showAlternatives(data) {
+        this.downloadProgress.classList.add('hidden');
+        
+        const alternativeDiv = document.createElement('div');
+        alternativeDiv.className = 'alternative-download';
+        alternativeDiv.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin: 20px 0;
+            text-align: center;
+        `;
+        
+        let alternativeLinks = '';
+        if (data.alternatives && Array.isArray(data.alternatives)) {
+            data.alternatives.forEach((alt, index) => {
+                if (typeof alt === 'object' && alt.name && alt.url) {
+                    alternativeLinks += `
+                        <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <h4 style="margin: 0 0 5px 0; color: #333;">${alt.name}</h4>
+                            <p style="margin: 5px 0; color: #666; font-size: 14px;">${alt.description}</p>
+                            <a href="${alt.url}" target="_blank" 
+                               style="display: inline-block; margin-top: 10px; padding: 10px 20px; 
+                                      background: #007bff; color: white; text-decoration: none; 
+                                      border-radius: 5px; font-weight: bold;">
+                                🔗 ${alt.name} ile İndir
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    alternativeLinks += `
+                        <a href="${alt}" target="_blank" 
+                           style="display: inline-block; margin: 5px 10px; padding: 10px 15px; 
+                                  background: #007bff; color: white; text-decoration: none; 
+                                  border-radius: 5px; font-size: 14px;">
+                            Alternatif ${index + 1}
+                        </a>
+                    `;
+                }
+            });
+        }
+        
+        alternativeDiv.innerHTML = `
+            <h3 style="color: #e74c3c; margin-bottom: 20px;">⚠️ Otomatik İndirme Kullanılamıyor</h3>
+            <p style="color: #666; margin-bottom: 20px;">${data.message}</p>
+            <div style="margin-top: 20px;">
+                ${alternativeLinks}
+            </div>
+            <div style="margin-top: 30px; padding: 15px; background: #e8f4fd; border-radius: 8px;">
+                <p style="color: #31708f; font-size: 14px; margin: 0;">
+                    💡 <strong>Nasıl Kullanılır:</strong><br>
+                    1. Yukarıdaki sitelerden birini seçin<br>
+                    2. YouTube URL'sini yapıştırın<br>
+                    3. MP3 formatını seçip indirin
+                </p>
+            </div>
+        `;
+        
+        // Mevcut içerikleri temizle
+        const existingAlternatives = document.querySelectorAll('.alternative-download');
+        existingAlternatives.forEach(alt => alt.remove());
+        
+        // Yeni alternatif bölümünü ekle
+        this.videoInfo.appendChild(alternativeDiv);
+        this.videoInfo.classList.remove('hidden');
+    }
+
+    showAlternatives(data) {
         const alternativeDiv = document.createElement('div');
         alternativeDiv.className = 'alternative-download';
         alternativeDiv.style.cssText = `
