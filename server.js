@@ -130,16 +130,17 @@ app.post('/api/download', async (req, res) => {
         });
 
         if (!result.success) {
-            // Bot koruması durumunda alternatif öner
-            if (result.error && result.error.includes('bot')) {
+            // Bot koruması veya erişim engeli durumunda alternatif öner
+            if (result.error && (result.error.includes('bot') || result.error.includes('engel'))) {
                 const videoId = extractVideoId(url);
                 return res.json({
-                    error: 'YouTube bot koruması aktif',
+                    error: 'YouTube erişimi engellendi',
                     message: 'Otomatik indirme şu anda mümkün değil. Alternatif siteler:',
                     alternatives: [
                         `https://y2mate.com/youtube/${videoId}`,
                         `https://ytmp3.cc/youtube-to-mp3/`,
-                        `https://mp3download.to/`
+                        `https://mp3download.to/`,
+                        `https://loader.to/tr/youtube-mp3-downloader/`
                     ],
                     videoId: videoId
                 });

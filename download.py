@@ -5,55 +5,137 @@ import os
 import json
 import shutil
 
+def try_pytube(url, output_path):
+    """Pytube ile indirme denemesi"""
+    try:
+        from pytube import YouTube
+        print("Pytube ile deneniyor...")
+        
+        yt = YouTube(url)
+        title = yt.title
+        
+        # Ses stream'ini al
+        audio_stream = yt.streams.filter(only_audio=True).first()
+        
+        if audio_stream:
+            print(f"Pytube - Video: {title}")
+            filename = f"{title}.mp4"
+            filepath = audio_stream.download(output_path=output_path, filename=filename)
+            
+            # MP3 olarak yeniden adlandır
+            mp3_path = os.path.join(output_path, f"{title}.mp3")
+            shutil.move(filepath, mp3_path)
+            
+            file_size = os.path.getsize(mp3_path)
+            
+            if file_size > 50000:
+                return {
+                    'success': True,
+                    'filename': f"{title}.mp3",
+                    'title': title,
+                    'duration': yt.length,
+                    'path': mp3_path,
+                    'size': file_size,
+                    'method': 'pytube'
+                }
+        
+        return None
+    except Exception as e:
+        print(f"Pytube hatası: {str(e)}")
+        return None
+
+def try_yt_dlp_simple(url, output_path):
+    """En basit yt-dlp denemesi"""
+    try:
+        print("Basit yt-dlp deneniyor...")
+        
+        ydl_opts = {
+            'format': 'bestaudio',
+            'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+            'quiet': False,
+            'no_warnings': False,
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            if not info:
+                return None
+            
+            title = info.get('title', 'Unknown')
+            duration = info.get('duration', 0)
+            
+            print(f"Basit yt-dlp - Video: {title}")
+            
+            # Mevcut dosyaları temizle
+            for file in os.listdir(output_path):
+                if os.path.isfile(os.path.join(output_path, file)):
+                    os.remove(os.path.join(output_path, file))
+            
+            ydl.download([url])
+            
+            # İndirilen dosyayı bul
+            for file in os.listdir(output_path):
+                file_path = os.path.join(output_path, file)
+                if os.path.isfile(file_path):
+                    file_size = os.path.getsize(file_path)
+                    print(f"Dosya: {file}, Boyut: {file_size} bytes")
+                    
+                    if file_size > 50000:
+                        # MP3 uzantısıyla yeniden adlandır
+                        if not file.endswith('.mp3'):
+                            new_name = os.path.splitext(file)[0] + '.mp3'
+                            new_path = os.path.join(output_path, new_name)
+                            shutil.move(file_path, new_path)
+                            file = new_name
+                            file_path = new_path
+                        
+                        return {
+                            'success': True,
+                            'filename': file,
+                            'title': title,
+                            'duration': duration,
+                            'path': file_path,
+                            'size': file_size,
+                            'method': 'yt-dlp-simple'
+                        }
+        
+        return None
+    except Exception as e:
+        print(f"Basit yt-dlp hatası: {str(e)}")
+        return None
+
 def download_audio(url, output_path):
     try:
-        # FFmpeg olmadan direkt ses formatı indirme
+        # Yöntem 1: Pytube dene
+        result = try_pytube(url, output_path)
+        if result:
+            return result
+        
+        # Yöntem 2: Basit yt-dlp dene
+        result = try_yt_dlp_simple(url, output_path)
+        if result:
+            return result
+        
+        # Yöntem 3: yt-dlp farklı client'lar
         methods = [
-            # Yöntem 1: Direkt MP3 formatı (FFmpeg'siz)
-            {
-                'format': 'bestaudio[ext=mp3]',
-                'outtmpl': os.path.join(output_path, '%(title)s.mp3'),
-                'quiet': True,
-                'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                }
-            },
-            # Yöntem 2: M4A formatı (FFmpeg'siz)
-            {
-                'format': 'bestaudio[ext=m4a]',
-                'outtmpl': os.path.join(output_path, '%(title)s.m4a'),
-                'quiet': True,
-                'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                }
-            },
-            # Yöntem 3: WebM formatı (FFmpeg'siz)
-            {
-                'format': 'bestaudio[ext=webm]',
-                'outtmpl': os.path.join(output_path, '%(title)s.webm'),
-                'quiet': True,
-                'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                }
-            },
-            # Yöntem 4: En iyi ses formatı (FFmpeg'siz)
             {
                 'format': 'bestaudio',
                 'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
                 'quiet': True,
-                'no_warnings': True,
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android']
+                    }
+                }
+            },
+            {
+                'format': 'worst',
+                'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['ios']
                     }
                 }
             }
@@ -61,49 +143,32 @@ def download_audio(url, output_path):
         
         for i, ydl_opts in enumerate(methods, 1):
             try:
-                print(f"Yöntem {i} deneniyor...")
+                print(f"yt-dlp Yöntem {i} deneniyor...")
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # Video bilgilerini al
                     info = ydl.extract_info(url, download=False)
                     
                     if not info:
-                        print(f"Yöntem {i} - Video bilgisi alınamadı")
                         continue
                     
                     title = info.get('title', 'Unknown')
                     duration = info.get('duration', 0)
                     
-                    print(f"Yöntem {i} - Video: {title}, Süre: {duration}")
-                    
                     # Mevcut dosyaları temizle
                     for file in os.listdir(output_path):
-                        if file.endswith(('.mp3', '.m4a', '.webm', '.mp4', '.opus')):
+                        if os.path.isfile(os.path.join(output_path, file)):
                             os.remove(os.path.join(output_path, file))
                     
-                    # İndir
-                    print(f"Yöntem {i} - İndirme başlıyor...")
                     ydl.download([url])
                     
                     # İndirilen dosyayı kontrol et
-                    print(f"Yöntem {i} - Dosyalar kontrol ediliyor...")
                     for file in os.listdir(output_path):
-                        print(f"Bulunan dosya: {file}")
                         file_path = os.path.join(output_path, file)
-                        
                         if os.path.isfile(file_path):
                             file_size = os.path.getsize(file_path)
-                            print(f"Dosya: {file}, Boyut: {file_size} bytes")
                             
-                            # Dosya boyutu kontrolü
-                            if file_size < 50000:  # 50KB'den küçükse
-                                print(f"Dosya çok küçük ({file_size} bytes), siliniyor...")
-                                os.remove(file_path)
-                                continue
-                            
-                            # Ses dosyası ise kabul et
-                            if file.endswith(('.mp3', '.m4a', '.webm', '.opus')):
-                                # Dosyayı .mp3 uzantısıyla yeniden adlandır (tarayıcı uyumluluğu için)
+                            if file_size > 50000:
+                                # MP3 uzantısıyla yeniden adlandır
                                 if not file.endswith('.mp3'):
                                     new_name = os.path.splitext(file)[0] + '.mp3'
                                     new_path = os.path.join(output_path, new_name)
@@ -118,18 +183,15 @@ def download_audio(url, output_path):
                                     'duration': duration,
                                     'path': file_path,
                                     'size': file_size,
-                                    'method': i,
-                                    'format': os.path.splitext(file)[1]
+                                    'method': f'yt-dlp-{i}'
                                 }
                 
-                print(f"Yöntem {i} - Geçerli ses dosyası bulunamadı")
-                
             except Exception as e:
-                print(f"Yöntem {i} hatası: {str(e)}")
+                print(f"yt-dlp Yöntem {i} hatası: {str(e)}")
                 continue
         
         # Tüm yöntemler başarısız
-        return {'success': False, 'error': 'Tüm indirme yöntemleri başarısız. YouTube ses formatlarına erişim engellendi.'}
+        return {'success': False, 'error': 'YouTube erişimi tamamen engellendi. Alternatif siteler kullanın.'}
             
     except Exception as e:
         error_msg = str(e)
