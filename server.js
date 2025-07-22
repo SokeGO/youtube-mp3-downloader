@@ -153,6 +153,14 @@ app.post('/api/download', async (req, res) => {
             throw new Error('İndirilen dosya bulunamadı');
         }
 
+        // Dosya boyutu kontrolü
+        const fileStats = fs.statSync(tempFile);
+        console.log(`Dosya boyutu: ${fileStats.size} bytes`);
+        
+        if (fileStats.size < 10000) { // 10KB'den küçükse
+            throw new Error(`Dosya çok küçük (${fileStats.size} bytes). İndirme başarısız.`);
+        }
+
         // Dosyayı kullanıcıya gönder
         const filename = result.title.replace(/[^\w\s-]/gi, '').substring(0, 50) + '.mp3';
 

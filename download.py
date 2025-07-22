@@ -4,23 +4,23 @@ import sys
 import os
 import json
 import time
-import random
 
 def download_audio(url, output_path):
     try:
         # Farklı yöntemler sırayla dene
         methods = [
-            # Yöntem 1: Android client
+            # Yöntem 1: Direkt MP3 formatı ara
             {
-                'format': 'worst[ext=mp4]/worst',
+                'format': 'bestaudio[ext=mp3]/bestaudio[ext=m4a]/bestaudio',
                 'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'prefer_ffmpeg': True,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '96',
+                    'preferredquality': '128',
                 }],
-                'quiet': True,
-                'no_warnings': True,
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android']
@@ -29,54 +29,37 @@ def download_audio(url, output_path):
             },
             # Yöntem 2: iOS client
             {
-                'format': 'worst[ext=mp4]/worst',
+                'format': 'bestaudio[ext=m4a]/bestaudio',
                 'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'prefer_ffmpeg': True,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '96',
+                    'preferredquality': '128',
                 }],
-                'quiet': True,
-                'no_warnings': True,
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['ios']
                     }
                 }
             },
-            # Yöntem 3: Web client with bypass
+            # Yöntem 3: Web client
             {
-                'format': 'worst[ext=mp4]/worst',
+                'format': 'bestaudio/best',
                 'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'prefer_ffmpeg': True,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '96',
+                    'preferredquality': '128',
                 }],
-                'quiet': True,
-                'no_warnings': True,
-                'user_agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web'],
-                        'skip': ['hls', 'dash']
-                    }
-                }
-            },
-            # Yöntem 4: TV client
-            {
-                'format': 'worst[ext=mp4]/worst',
-                'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '96',
-                }],
-                'quiet': True,
-                'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['tv_embedded']
+                        'player_client': ['web']
                     }
                 }
             }
@@ -99,15 +82,29 @@ def download_audio(url, output_path):
                     
                     print(f"Yöntem {i} - Video: {title}, Süre: {duration}")
                     
+                    # Mevcut dosyaları temizle
+                    for file in os.listdir(output_path):
+                        if file.endswith(('.mp3', '.m4a', '.webm', '.mp4')):
+                            os.remove(os.path.join(output_path, file))
+                    
                     # İndir
+                    print(f"Yöntem {i} - İndirme başlıyor...")
                     ydl.download([url])
                     
-                    # İndirilen dosyayı bul
+                    # İndirilen dosyayı kontrol et
+                    print(f"Yöntem {i} - Dosyalar kontrol ediliyor...")
                     for file in os.listdir(output_path):
+                        print(f"Bulunan dosya: {file}")
                         if file.endswith('.mp3'):
                             file_path = os.path.join(output_path, file)
                             file_size = os.path.getsize(file_path)
-                            print(f"Başarılı! MP3: {file}, Boyut: {file_size} bytes")
+                            print(f"MP3 dosyası: {file}, Boyut: {file_size} bytes")
+                            
+                            # Dosya boyutu kontrolü
+                            if file_size < 10000:  # 10KB'den küçükse
+                                print(f"Dosya çok küçük ({file_size} bytes), siliniyor...")
+                                os.remove(file_path)
+                                continue
                             
                             return {
                                 'success': True,
@@ -115,17 +112,65 @@ def download_audio(url, output_path):
                                 'title': title,
                                 'duration': duration,
                                 'path': file_path,
+                                'size': file_size,
                                 'method': i
                             }
                 
-                print(f"Yöntem {i} - MP3 dosyası oluşturulamadı")
+                print(f"Yöntem {i} - Geçerli MP3 dosyası bulunamadı")
                 
             except Exception as e:
                 print(f"Yöntem {i} hatası: {str(e)}")
                 continue
         
+        # Tüm yöntemler başarısız - son çare olarak video formatını dene
+        try:
+            print("Son çare: Video formatı deneniyor...")
+            ydl_opts = {
+                'format': 'worst[height<=360]/worst',
+                'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+                'quiet': False,
+                'no_warnings': False,
+                'prefer_ffmpeg': True,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '96',
+                }],
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    title = info.get('title', 'Unknown')
+                    duration = info.get('duration', 0)
+                    
+                    # Mevcut dosyaları temizle
+                    for file in os.listdir(output_path):
+                        if file.endswith(('.mp3', '.m4a', '.webm', '.mp4')):
+                            os.remove(os.path.join(output_path, file))
+                    
+                    ydl.download([url])
+                    
+                    for file in os.listdir(output_path):
+                        if file.endswith('.mp3'):
+                            file_path = os.path.join(output_path, file)
+                            file_size = os.path.getsize(file_path)
+                            
+                            if file_size >= 10000:  # En az 10KB
+                                return {
+                                    'success': True,
+                                    'filename': file,
+                                    'title': title,
+                                    'duration': duration,
+                                    'path': file_path,
+                                    'size': file_size,
+                                    'method': 'fallback'
+                                }
+        except Exception as e:
+            print(f"Son çare hatası: {str(e)}")
+        
         # Tüm yöntemler başarısız
-        return {'success': False, 'error': 'Tüm indirme yöntemleri başarısız. YouTube bot koruması aktif.'}
+        return {'success': False, 'error': 'Tüm indirme yöntemleri başarısız. YouTube bot koruması veya FFmpeg sorunu.'}
             
     except Exception as e:
         error_msg = str(e)
