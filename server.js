@@ -129,7 +129,10 @@ app.post('/api/download', async (req, res) => {
             });
         });
 
+        console.log('Python result:', result);
+
         if (!result.success) {
+            console.log('Python başarısız:', result.error);
             // Bot koruması veya erişim engeli durumunda alternatif öner
             if (result.error && (result.error.includes('bot') || result.error.includes('engel'))) {
                 const videoId = extractVideoId(url);
@@ -149,9 +152,10 @@ app.post('/api/download', async (req, res) => {
         }
 
         tempFile = result.path;
+        console.log('Temp file path:', tempFile);
 
-        if (!fs.existsSync(tempFile)) {
-            throw new Error('İndirilen dosya bulunamadı');
+        if (!tempFile || !fs.existsSync(tempFile)) {
+            throw new Error('İndirilen dosya bulunamadı: ' + tempFile);
         }
 
         // Dosya boyutu kontrolü
@@ -163,32 +167,49 @@ app.post('/api/download', async (req, res) => {
         }
 
         // Dosyayı streaming için hazırla
-        const filename = result.title.replace(/[^\w\s-]/gi, '').substring(0, 50);
+        const filename = result.title ? result.title.replace(/[^\w\s-]/gi, '').substring(0, 50) : 'audio';
         const audioId = Date.now().toString(); // Unique ID
         
         // Dosyayı public klasörüne taşı (geçici olarak)
         const publicAudioPath = path.join(__dirname, 'public', 'audio', `${audioId}.mp3`);
         const audioDir = path.join(__dirname, 'public', 'audio');
         
+        console.log('Audio directory:', audioDir);
+        console.log('Public audio path:', publicAudioPath);
+        
         if (!fs.existsSync(audioDir)) {
             fs.mkdirSync(audioDir, { recursive: true });
+            console.log('Audio directory created');
         }
         
         fs.copyFileSync(tempFile, publicAudioPath);
+        console.log('File copied to public directory');
+        
+        // Dosya kopyalandığını doğrula
+        if (!fs.existsSync(publicAudioPath)) {
+            throw new Error('Dosya public klasörüne kopyalanamadı');
+        }
+        
+        const publicFileStats = fs.statSync(publicAudioPath);
+        console.log(`Public dosya boyutu: ${publicFileStats.size} bytes`);
         
         // Streaming bilgilerini döndür
-        res.json({
+        const responseData = {
             success: true,
-            title: result.title,
-            duration: result.duration,
+            title: result.title || 'YouTube Audio',
+            duration: result.duration || 0,
             audioUrl: `/audio/${audioId}.mp3`,
             audioId: audioId,
             size: fileStats.size
-        });
+        };
+        
+        console.log('Response data:', responseData);
+        res.json(responseData);
 
         // Orijinal temp dosyayı sil
         if (fs.existsSync(tempFile)) {
             fs.unlinkSync(tempFile);
+            console.log('Temp file deleted');
         }
 
         // 10 dakika sonra public dosyayı da sil
