@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube MP3 İndirici</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 YouTube MP3 İndirici</h1>
+            <p>YouTube videolarını MP3 formatında indirin</p>
+        </header>
+
+        <main>
+            <div class="search-section">
+                <div class="input-group">
+                    <input type="text" id="urlInput" placeholder="YouTube video URL'sini buraya yapıştırın...">
+                    <button id="searchBtn">Ara</button>
+                </div>
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Video bilgileri alınıyor...</p>
+            </div>
+
+            <div id="videoInfo" class="video-info hidden">
+                <div class="video-card">
+                    <img id="thumbnail" src="" alt="Video thumbnail">
+                    <div class="video-details">
+                        <h3 id="videoTitle"></h3>
+                        <p id="videoAuthor"></p>
+                        <p id="videoDuration"></p>
+                        <button id="downloadBtn" class="download-btn">MP3 İndir</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="downloadProgress" class="download-progress hidden">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p>İndiriliyor...</p>
+            </div>
+
+            <div id="error" class="error hidden"></div>
+        </main>
+
+        <footer>
+            <p>⚠️ Sadece telif hakkı olmayan içerikleri indirin</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
