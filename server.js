@@ -57,14 +57,13 @@ app.post('/api/video-info', async (req, res) => {
             const videoDetails = {
                 title: response.data.title,
                 author: response.data.author_name,
-                lengthSeconds: 'Bilinmiyor', // oEmbed'de süre yok
+                lengthSeconds: 'Bilinmiyor',
                 thumbnail: response.data.thumbnail_url
             };
 
             res.json(videoDetails);
         } catch (oembedError) {
             console.log('oEmbed hatası:', oembedError.message);
-            // oEmbed başarısız olursa basit bilgi döndür
             const videoDetails = {
                 title: `YouTube Video ${videoId}`,
                 author: 'YouTube Kullanıcısı',
@@ -80,10 +79,10 @@ app.post('/api/video-info', async (req, res) => {
     }
 });
 
-// MP3 indirme - Python yt-dlp kullanarak
+// Ses dosyası streaming
 app.post('/api/download', async (req, res) => {
     const tempDir = path.join(__dirname, 'temp');
-    let tempFile = null;
+    const audioDir = path.join(__dirname, 'public', 'audio');
 
     try {
         const { url } = req.body;
@@ -92,145 +91,85 @@ app.post('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
 
-        // Temp klasörü oluştur
+        // Klasörleri oluştur
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
         }
+        if (!fs.existsSync(audioDir)) {
+            fs.mkdirSync(audioDir, { recursive: true });
+        }
 
-        // Python script'ini çalıştır
+        // Python ile indir
         const pythonCommand = `python3 download.py "${url}" "${tempDir}"`;
-
-        console.log('Python komutu çalıştırılıyor:', pythonCommand);
+        console.log('Python komutu:', pythonCommand);
 
         const result = await new Promise((resolve, reject) => {
             exec(pythonCommand, { timeout: 180000 }, (error, stdout, stderr) => {
-                console.log('Python stdout:', stdout);
-                console.log('Python stderr:', stderr);
-
                 if (error) {
-                    console.error('Python execution error:', error);
+                    console.error('Python hatası:', error);
                     reject(error);
                     return;
                 }
 
                 try {
-                    // stdout'dan JSON kısmını ayıkla
                     const lines = stdout.trim().split('\n');
-                    const jsonLine = lines[lines.length - 1]; // Son satır JSON olmalı
-                    console.log('JSON line:', jsonLine);
-
+                    const jsonLine = lines[lines.length - 1];
                     const result = JSON.parse(jsonLine);
                     resolve(result);
                 } catch (parseError) {
                     console.error('JSON parse hatası:', parseError);
-                    console.error('Full stdout:', stdout);
                     reject(parseError);
                 }
             });
         });
 
-        console.log('Python result:', result);
-
         if (!result.success) {
-            console.log('Python başarısız:', result.error);
-            // Bot koruması veya erişim engeli durumunda alternatif öner
-            if (result.error && (result.error.includes('bot') || result.error.includes('engel'))) {
-                const videoId = extractVideoId(url);
-                return res.json({
-                    error: 'YouTube erişimi engellendi',
-                    message: 'Otomatik indirme şu anda mümkün değil. Alternatif siteler:',
-                    alternatives: [
-                        `https://y2mate.com/youtube/${videoId}`,
-                        `https://ytmp3.cc/youtube-to-mp3/`,
-                        `https://mp3download.to/`,
-                        `https://loader.to/tr/youtube-mp3-downloader/`
-                    ],
-                    videoId: videoId
-                });
-            }
-            throw new Error(result.error || 'İndirme başarısız');
+            // Alternatif siteler öner
+            const videoId = extractVideoId(url);
+            return res.json({
+                error: 'YouTube erişimi engellendi',
+                message: 'Alternatif siteler kullanın:',
+                alternatives: [
+                    `https://y2mate.com/youtube/${videoId}`,
+                    `https://ytmp3.cc/youtube-to-mp3/`,
+                    `https://mp3download.to/`
+                ]
+            });
         }
 
-        tempFile = result.path;
-        console.log('Temp file path:', tempFile);
-
-        if (!tempFile || !fs.existsSync(tempFile)) {
-            throw new Error('İndirilen dosya bulunamadı: ' + tempFile);
+        const tempFile = result.path;
+        if (!fs.existsSync(tempFile)) {
+            throw new Error('Dosya bulunamadı');
         }
 
-        // Dosya boyutu kontrolü
-        const fileStats = fs.statSync(tempFile);
-        console.log(`Dosya boyutu: ${fileStats.size} bytes`);
-
-        if (fileStats.size < 50000) { // 50KB'den küçükse
-            throw new Error(`Dosya çok küçük (${fileStats.size} bytes). İndirme başarısız.`);
-        }
-
-        // Dosyayı streaming için hazırla
-        const filename = result.title ? result.title.replace(/[^\w\s-]/gi, '').substring(0, 50) : 'audio';
-        const audioId = Date.now().toString(); // Unique ID
-        
-        // Dosyayı public klasörüne taşı (geçici olarak)
-        const publicAudioPath = path.join(__dirname, 'public', 'audio', `${audioId}.mp3`);
-        const audioDir = path.join(__dirname, 'public', 'audio');
-        
-        console.log('Audio directory:', audioDir);
-        console.log('Public audio path:', publicAudioPath);
-        
-        if (!fs.existsSync(audioDir)) {
-            fs.mkdirSync(audioDir, { recursive: true });
-            console.log('Audio directory created');
-        }
+        // Dosyayı public/audio klasörüne kopyala
+        const audioId = Date.now().toString();
+        const publicAudioPath = path.join(audioDir, `${audioId}.mp3`);
         
         fs.copyFileSync(tempFile, publicAudioPath);
-        console.log('File copied to public directory');
         
-        // Dosya kopyalandığını doğrula
-        if (!fs.existsSync(publicAudioPath)) {
-            throw new Error('Dosya public klasörüne kopyalanamadı');
-        }
-        
-        const publicFileStats = fs.statSync(publicAudioPath);
-        console.log(`Public dosya boyutu: ${publicFileStats.size} bytes`);
-        
-        // Streaming bilgilerini döndür
-        const responseData = {
+        // Temp dosyayı sil
+        fs.unlinkSync(tempFile);
+
+        // Response gönder
+        res.json({
             success: true,
-            title: result.title || 'YouTube Audio',
-            duration: result.duration || 0,
+            title: result.title,
+            duration: result.duration,
             audioUrl: `/audio/${audioId}.mp3`,
-            audioId: audioId,
-            size: fileStats.size
-        };
-        
-        console.log('Response data:', responseData);
-        res.json(responseData);
+            size: result.size
+        });
 
-        // Orijinal temp dosyayı sil
-        if (fs.existsSync(tempFile)) {
-            fs.unlinkSync(tempFile);
-            console.log('Temp file deleted');
-        }
-
-        // 10 dakika sonra public dosyayı da sil
+        // 10 dakika sonra public dosyayı sil
         setTimeout(() => {
             if (fs.existsSync(publicAudioPath)) {
                 fs.unlinkSync(publicAudioPath);
-                console.log('Public audio dosyası silindi:', publicAudioPath);
             }
-        }, 10 * 60 * 1000); // 10 dakika
+        }, 10 * 60 * 1000);
 
     } catch (error) {
-        console.error('İndirme hatası:', error);
-
-        // Hata durumunda temp dosyayı temizle
-        if (tempFile && fs.existsSync(tempFile)) {
-            fs.unlinkSync(tempFile);
-        }
-
-        if (!res.headersSent) {
-            res.status(500).json({ error: 'İndirme başarısız: ' + error.message });
-        }
+        console.error('Hata:', error);
+        res.status(500).json({ error: 'İşlem başarısız: ' + error.message });
     }
 });
 

@@ -28,7 +28,7 @@ class YouTubeDownloader {
 
     async searchVideo() {
         const url = this.urlInput.value.trim();
-        
+
         if (!url) {
             this.showError('Lütfen bir YouTube URL\'si girin');
             return;
@@ -67,7 +67,7 @@ class YouTubeDownloader {
 
     async downloadVideo() {
         const url = this.urlInput.value.trim();
-        
+
         this.hideAll();
         this.downloadProgress.classList.remove('hidden');
 
@@ -88,7 +88,7 @@ class YouTubeDownloader {
                     this.showAlternatives(data);
                     return;
                 }
-                
+
                 throw new Error(data.error || 'İşlem başarısız');
             }
 
@@ -102,16 +102,8 @@ class YouTubeDownloader {
     }
 
     showAudioPlayer(data) {
-        console.log('Audio player data:', data);
-        
         this.downloadProgress.classList.add('hidden');
-        
-        // Veri kontrolü
-        if (!data.audioUrl || !data.title) {
-            this.showError('Ses dosyası bilgileri eksik');
-            return;
-        }
-        
+
         const playerDiv = document.createElement('div');
         playerDiv.className = 'audio-player';
         playerDiv.style.cssText = `
@@ -122,25 +114,20 @@ class YouTubeDownloader {
             margin: 20px 0;
             text-align: center;
         `;
-        
+
         const title = data.title || 'YouTube Audio';
         const audioUrl = data.audioUrl;
         const fileSize = data.size ? (data.size / 1024 / 1024).toFixed(2) : 'Bilinmiyor';
-        
+
         playerDiv.innerHTML = `
             <h3 style="margin-bottom: 20px; color: #333;">${title}</h3>
-            <audio controls style="width: 100%; max-width: 500px; margin: 20px 0;" preload="metadata">
+            <audio controls style="width: 100%; max-width: 500px; margin: 20px 0;">
                 <source src="${audioUrl}" type="audio/mpeg">
-                <source src="${audioUrl}" type="audio/mp4">
-                <source src="${audioUrl}" type="audio/wav">
                 Tarayıcınız ses dosyasını desteklemiyor.
             </audio>
             <div style="margin-top: 20px;">
                 <p style="color: #666; font-size: 14px;">
                     Dosya Boyutu: ${fileSize} MB
-                </p>
-                <p style="color: #666; font-size: 12px; margin: 5px 0;">
-                    Ses URL: ${audioUrl}
                 </p>
                 <a href="${audioUrl}" download="${title}.mp3" 
                    style="display: inline-block; margin-top: 10px; padding: 10px 20px; 
@@ -148,39 +135,20 @@ class YouTubeDownloader {
                           border-radius: 5px;">
                     💾 İndir
                 </a>
-                <button onclick="window.open('${audioUrl}', '_blank')"
-                   style="display: inline-block; margin: 10px 5px; padding: 10px 20px; 
-                          background: #007bff; color: white; border: none; 
-                          border-radius: 5px; cursor: pointer;">
-                    🔗 Yeni Sekmede Aç
-                </button>
                 <p style="color: #999; font-size: 12px; margin-top: 10px;">
                     ⏰ Bu dosya 10 dakika sonra silinecek
                 </p>
             </div>
         `;
-        
+
         // Mevcut player'ları temizle
         const existingPlayers = document.querySelectorAll('.audio-player');
         existingPlayers.forEach(player => player.remove());
-        
+
         // Yeni player'ı ekle
         this.videoInfo.appendChild(playerDiv);
         this.videoInfo.classList.remove('hidden');
-        
-        // Audio element'e event listener ekle
-        const audioElement = playerDiv.querySelector('audio');
-        audioElement.addEventListener('loadstart', () => {
-            console.log('Audio loading started');
-        });
-        audioElement.addEventListener('canplay', () => {
-            console.log('Audio can play');
-        });
-        audioElement.addEventListener('error', (e) => {
-            console.error('Audio error:', e);
-            this.showError('Ses dosyası yüklenemedi. İndirme linkini deneyin.');
-        });
-        
+
         this.showSuccess('🎵 Ses dosyası hazır! Dinleyebilir veya indirebilirsiniz.');
     }
 
@@ -196,7 +164,7 @@ class YouTubeDownloader {
             margin: 20px 0;
             text-align: center;
         `;
-        
+
         let alternativeLinks = '';
         data.alternatives.forEach((link, index) => {
             alternativeLinks += `
@@ -208,7 +176,7 @@ class YouTubeDownloader {
                 </a>
             `;
         });
-        
+
         alternativeDiv.innerHTML = `
             <h4>🤖 YouTube Bot Koruması Aktif</h4>
             <p>${data.message}</p>
@@ -219,9 +187,9 @@ class YouTubeDownloader {
                 Bu siteler üzerinden manuel olarak indirebilirsiniz
             </p>
         `;
-        
+
         this.videoInfo.insertBefore(alternativeDiv, this.videoInfo.firstChild);
-        
+
         setTimeout(() => {
             alternativeDiv.remove();
         }, 15000);
@@ -232,7 +200,7 @@ class YouTubeDownloader {
         this.videoTitle.textContent = data.title;
         this.videoAuthor.textContent = `Kanal: ${data.author}`;
         this.videoDuration.textContent = `Süre: ${this.formatDuration(data.lengthSeconds)}`;
-        
+
         this.videoInfo.classList.remove('hidden');
     }
 
@@ -274,9 +242,9 @@ class YouTubeDownloader {
             margin-bottom: 20px;
         `;
         successDiv.textContent = message;
-        
+
         this.videoInfo.insertBefore(successDiv, this.videoInfo.firstChild);
-        
+
         setTimeout(() => {
             successDiv.remove();
         }, 3000);
