@@ -87,7 +87,7 @@ app.post('/api/download', async (req, res) => {
 
     try {
         const { url } = req.body;
-        
+
         if (!isValidYouTubeURL(url)) {
             return res.status(400).json({ error: 'Geçersiz YouTube URL' });
         }
@@ -99,7 +99,7 @@ app.post('/api/download', async (req, res) => {
 
         // Python script'ini çalıştır
         const pythonCommand = `python3 download.py "${url}" "${tempDir}"`;
-        
+
         console.log('Python komutu çalıştırılıyor:', pythonCommand);
 
         const result = await new Promise((resolve, reject) => {
@@ -110,7 +110,7 @@ app.post('/api/download', async (req, res) => {
                     reject(error);
                     return;
                 }
-                
+
                 try {
                     const result = JSON.parse(stdout.trim());
                     resolve(result);
@@ -127,17 +127,17 @@ app.post('/api/download', async (req, res) => {
         }
 
         tempFile = result.path;
-        
+
         if (!fs.existsSync(tempFile)) {
             throw new Error('İndirilen dosya bulunamadı');
         }
 
         // Dosyayı kullanıcıya gönder
         const filename = result.title.replace(/[^\w\s-]/gi, '').substring(0, 50) + '.mp3';
-        
+
         res.header('Content-Disposition', `attachment; filename="${filename}"`);
         res.header('Content-Type', 'audio/mpeg');
-        
+
         const fileStream = fs.createReadStream(tempFile);
         fileStream.pipe(res);
 
@@ -160,12 +160,12 @@ app.post('/api/download', async (req, res) => {
 
     } catch (error) {
         console.error('İndirme hatası:', error);
-        
+
         // Hata durumunda temp dosyayı temizle
         if (tempFile && fs.existsSync(tempFile)) {
             fs.unlinkSync(tempFile);
         }
-        
+
         if (!res.headersSent) {
             res.status(500).json({ error: 'İndirme başarısız: ' + error.message });
         }
