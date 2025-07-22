@@ -6,9 +6,53 @@ import json
 import time
 import random
 
+def download_audio_simple(url, output_path):
+    """Basit ayarlarla indirme denemesi"""
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '128',
+            }],
+            'quiet': True,
+            'no_warnings': True,
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info is None:
+                return None
+                
+            title = info.get('title', 'Unknown')
+            duration = info.get('duration', 0)
+            
+            ydl.download([url])
+            
+            # İndirilen dosyayı bul
+            for file in os.listdir(output_path):
+                if file.endswith('.mp3'):
+                    return {
+                        'success': True,
+                        'filename': file,
+                        'title': title,
+                        'duration': duration,
+                        'path': os.path.join(output_path, file)
+                    }
+            return None
+    except:
+        return None
+
 def download_audio(url, output_path):
     try:
-        # Rastgele user agent seç
+        # Önce basit yöntemle dene
+        result = download_audio_simple(url, output_path)
+        if result:
+            return result
+            
+        # Basit yöntem başarısız olursa gelişmiş yöntemle dene
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -58,8 +102,12 @@ def download_audio(url, output_path):
             try:
                 # Video bilgilerini al
                 info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'Unknown')
-                duration = info.get('duration', 0)
+                
+                if info is None:
+                    return {'success': False, 'error': 'Video bilgisi alınamadı. Video mevcut değil veya erişilebilir değil.'}
+                
+                title = info.get('title', 'Unknown') if info else 'Unknown'
+                duration = info.get('duration', 0) if info else 0
                 
                 # İndir
                 ydl.download([url])
