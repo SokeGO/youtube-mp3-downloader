@@ -156,8 +156,8 @@ app.post('/api/download', async (req, res) => {
         // Dosya boyutu kontrolü
         const fileStats = fs.statSync(tempFile);
         console.log(`Dosya boyutu: ${fileStats.size} bytes`);
-        
-        if (fileStats.size < 10000) { // 10KB'den küçükse
+
+        if (fileStats.size < 50000) { // 50KB'den küçükse
             throw new Error(`Dosya çok küçük (${fileStats.size} bytes). İndirme başarısız.`);
         }
 
@@ -166,6 +166,7 @@ app.post('/api/download', async (req, res) => {
 
         res.header('Content-Disposition', `attachment; filename="${filename}"`);
         res.header('Content-Type', 'audio/mpeg');
+        res.header('Content-Length', fileStats.size);
 
         const fileStream = fs.createReadStream(tempFile);
         fileStream.pipe(res);
